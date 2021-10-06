@@ -1,10 +1,17 @@
 require('dotenv').config();
 const express = require("express");
+var bodyParser = require('body-parser')
+
+var cors = require('cors');
 const http = require("http");
 const app = express();
 const server = http.createServer(app);
 const socket = require("socket.io");
 const io = socket(server);
+
+const db = require('./db')
+const roomRouter = require('./routes/room-router')
+
 
 const users = {};
 
@@ -46,6 +53,14 @@ io.on('connection', socket => {
     });
 
 });
+
+
+app.use(cors())
+app.use(express.urlencoded({ extended: true }))
+app.use(express.json())
+
+app.use('/api', roomRouter)
+
 
 server.listen(process.env.PORT || 8000, () => console.log('server is running on port 8000'));
 

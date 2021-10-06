@@ -1,21 +1,27 @@
 import React, { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import Peer from "simple-peer";
-import styled from "styled-components";
 
-const Container = styled.div`
-    padding: 20px;
-    display: flex;
-    height: 100vh;
-    width: 90%;
-    margin: auto;
-    flex-wrap: wrap;
-`;
+import { 
+    ControlContainer, 
+    VideoContainer, 
+    Title, 
+    GalleryContainer, 
+    StyledVideo, 
+    TitleContainer, 
+    Container
+} from './Room.styled'
 
-const StyledVideo = styled.video`
-    height: 40%;
-    width: 50%;
-`;
+import IconButton from "@material-ui/core/IconButton";
+
+import MicIcon from '@material-ui/icons/Mic';
+import MicOffIcon from '@material-ui/icons/MicOff';
+
+import VolumeUpIcon from '@material-ui/icons/VolumeUp';
+import VolumeOffIcon from '@material-ui/icons/VolumeOff';
+import { Redirect } from "react-router";
+import { useAuthState } from "../../contexts/AuthContext";
+
 
 const Video = (props) => {
     const ref = useRef();
@@ -24,6 +30,10 @@ const Video = (props) => {
         props.peer.on("stream", stream => {
             ref.current.srcObject = stream;
         })
+        return function cleanup() {
+            ref.current.srcObject.getTracks()
+                .forEach((track) => track.stop());
+        };
     }, []);
 
     return (
@@ -44,9 +54,15 @@ const Room = (props) => {
     const peersRef = useRef([]);
     const roomID = props.match.params.roomID;
 
+    const { isAuthenticated } = useAuthState()
+
+    const [mic, setMic] = useState(true)
+    const [video, setVideo] = useState(true)
+
+
     useEffect(() => {
         socketRef.current = io.connect("/");
-        navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true }).then(stream => {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
             userVideo.current.srcObject = stream;
             socketRef.current.emit("join room", roomID);
             socketRef.current.on("all users", users => {
@@ -77,6 +93,10 @@ const Room = (props) => {
                 item.peer.signal(payload.signal);
             });
         })
+        return function cleanup() {
+            userVideo.current.srcObject.getTracks()
+            .forEach((track) => track.stop());
+        };
     }, []);
 
     function createPeer(userToSignal, callerID, stream) {
@@ -110,13 +130,55 @@ const Room = (props) => {
     }
 
     return (
+        
+        !isAuthenticated
+        ?
+        <Redirect to="/"></Redirect>
+        :
         <Container>
-            <StyledVideo muted ref={userVideo} autoPlay playsInline />
-            {peers.map((peer, index) => {
-                return (
-                    <Video key={index} peer={peer} />
-                );
-            })}
+           
+            <TitleContainer>
+                <Title>{roomID}</Title>
+            </TitleContainer>
+            <GalleryContainer>
+                <VideoContainer>
+                    <StyledVideo muted ref={userVideo} autoPlay playsInline />
+                </VideoContainer>
+                 
+                {peers.map((peer, index) => {
+                    return (
+                        <VideoContainer>
+                            <Video key={peer.id} peer={peer} />
+                        </VideoContainer>
+                    );
+                })}
+            </GalleryContainer>
+            <ControlContainer>
+                {
+                    mic ? (
+                    <IconButton onClick={ () => setMic(false)}>
+                        <MicIcon></MicIcon>
+                    </IconButton>) : (
+                    <IconButton onClick={() => setMic(true)}>
+                        <MicOffIcon></MicOffIcon>
+                    </IconButton>
+                    )
+                }
+                {
+                    video ? (
+                    <IconButton onClick={() => setVideo(false)}>
+                        <VolumeUpIcon></VolumeUpIcon>
+                    </IconButton>
+                    ) : (
+                    <IconButton onClick={ () => setVideo(true)}>
+                        <VolumeOffIcon></VolumeOffIcon>
+                    </IconButton>
+                    )
+                }
+                
+                
+                
+            </ControlContainer>
         </Container>
     );
 };
